@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Request, Query, HTTPException
+from fastapi import FastAPI, Request, Query, HTTPException, Form
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from psycopg.errors import UniqueViolation
 import os
 from .db import get_conn
@@ -44,7 +44,22 @@ async def index(request: Request):
 
 @app.get("/inventory", response_class=HTMLResponse)
 async def inventory_page(request: Request):
-    return templates.TemplateResponse("inventory.html", {"request": request, "title": "Inventar Starter"})
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            select device.id, device_type.device_type_name, location.location_name,
+            case when assignment.returned_at is null AND assignment.issued_at is not null then 'ausgeliehen'
+            else 'frei'
+            end as status
+            from device
+            join device_type on device.device_type_id = device_type.id
+            join location on device.location_id = location.id
+            join assignment on device.id = assignment.device_id
+            """
+        )
+        devices = list(cur.fetchall())
+        print(devices)
+        return templates.TemplateResponse("inventory.html", {"request": request, "title": "Inventar Starter", "devices": devices})
 
 @app.post("/mqtt/publish")
 async def mqtt_publish(topic: str = Query(...), payload: str = Query(...)):
@@ -63,7 +78,7 @@ async def get_devices():
         return devices
 
 @app.post("/devices")
-async def post_devices(serial_number, device_type_id, location_id):
+async def post_devices(serial_number = Form(...), device_type_id = Form(...), location_id = Form(...)):
     data = DeviceCreate(serial_number=serial_number,device_type_id=device_type_id, location_id=location_id)
     try:
         with get_conn() as conn, conn.cursor() as cur:
@@ -75,7 +90,7 @@ async def post_devices(serial_number, device_type_id, location_id):
                 (data.serial_number, data.device_type_id, data.location_id)
             )
             device = cur.fetchone()
-            return device
+            return RedirectResponse("/inventory", status_code=303)
     except UniqueViolation:
         raise HTTPException(status_code=409, detail="Serial number nicht unique")
 
@@ -134,5 +149,5 @@ async def post_assignments_return(id):
         )
         assignment = cur.fetchone()
         return assignment
-    pass
+
 

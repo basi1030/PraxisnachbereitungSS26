@@ -1,34 +1,56 @@
-<!doctype html>
-<html lang="de">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ title }}</title>
-    <style>
-      :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Ubuntu, Cantarell, Helvetica, Arial; }
-      body { margin: 0; padding: 2rem; background: #f3f4f6; }
-      .card { max-width: 920px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.05); }
-      h1, h2 { margin-top: 0; }
-      code { background: #f6f8fa; padding: .15rem .35rem; border-radius: 4px; }
-      ul { padding-left: 1.2rem; }
-      .hint { color: #4b5563; }
-      .box { margin-top: 1.5rem; padding: 1rem 1.25rem; border: 1px solid #e5e7eb; border-radius: 12px; background: #f9fafb; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h1>Inventar Starter</h1>
-      <p class="hint">Diese Seite ist bewusst nur ein Platzhalter. Ihr ergänzt hier im Laufe der Übung eure Inventar-Oberfläche.</p>
-
-      <div class="box">
-        <h2>Nächste Schritte</h2>
-        <ul>
-          <li>Ergänzt euer Inventar-Schema in <code>db/init/010_inventory_schema.sql</code>.</li>
-          <li>Legt Endpunkte für <code>/devices</code> und <code>/assignments</code> an.</li>
-          <li>Baut hier eine einfache Übersicht für Geräte und Ausleihen.</li>
-          <li>Nutzt den <code>grades-starter</code> als Referenz für Formulare, Templates und CRUD-Muster.</li>
-        </ul>
+  <!doctype html>
+  <html lang="de">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>{{ title }}</title>
+      <style>
+        :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Ubuntu, Cantarell, Helvetica, Arial; }
+        body { margin: 0; padding: 2rem; background: #f3f4f6; }
+        .card { max-width: 920px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.05); }
+        h1, h2 { margin-top: 0; }
+        code { background: #f6f8fa; padding: .15rem .35rem; border-radius: 4px; }
+        ul { padding-left: 1.2rem; }
+        .hint { color: #4b5563; }
+        .box { margin-top: 1.5rem; padding: 1rem 1.25rem; border: 1px solid #e5e7eb; border-radius: 12px; background: #f9fafb; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>Inventar</h1>
+        {% if devices %}
+          <ul>
+            {% for d in devices %}
+              <li>
+                <strong>ID:</strong> {{ d["id"] }} |
+                <strong>Type:</strong> {{ d["device_type_name"] }} |
+                <strong>Location:</strong> {{ d["location_name"] }} |
+                <strong>Status:</strong> {{ d["status" ]}}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>Keine Devices vorhanden.</p>
+        {% endif %}
+        <h2>Neues device</h2>
+        <form method="post" action="/devices">
+          <input type="hidden" name="return_to" value="/inventory" />
+          <label>
+            Serial number
+            <input class="short" type="text" name="serial_number" required />
+          </label>
+          <label>
+            Device Type ID
+            <input type="text" name="device_type_id" required />
+          </label>
+          <label>
+            Location ID
+            <input type="text" name="location_id" required />
+          </label>
+          <div class="full-row">
+            <button type="submit">Speichern</button>
+          </div>
+        </form>
       </div>
-    </div>
-  </body>
-</html>
+    </body>
+  </html>
