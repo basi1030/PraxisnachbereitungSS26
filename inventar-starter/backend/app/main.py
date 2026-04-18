@@ -1,9 +1,12 @@
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from psycopg.errors import UniqueViolation
 import os
 from .db import get_conn
 import paho.mqtt.client as mqtt
+from .models import DeviceCreate, AssignmentCreate, AssignmentReturn
+import datetime
 
 app = FastAPI(title="Inventar Starter", version="0.1.0")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -49,3 +52,87 @@ async def mqtt_publish(topic: str = Query(...), payload: str = Query(...)):
     c.publish(topic, payload, qos=0, retain=False)
     c.disconnect()
     return {"ok": True, "topic": topic, "payload": payload}
+
+@app.get("/devices")
+async def get_devices():
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+        "select * from device"
+        )
+        devices = list(cur.fetchall())
+        return devices
+
+@app.post("/devices")
+async def post_devices(serial_number, device_type_id, location_id):
+    data = DeviceCreate(serial_number=serial_number,device_type_id=device_type_id, location_id=location_id)
+    try:
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                insert into device (serial_number, device_type_id, location_id) values (%s, %s, %s)
+                returning (id, serial_number, device_type_id, location_id)
+                """,
+                (data.serial_number, data.device_type_id, data.location_id)
+            )
+            device = cur.fetchone()
+            return device
+    except UniqueViolation:
+        raise HTTPException(status_code=409, detail="Serial number nicht unique")
+
+@app.post("/assignments")
+async def post_assignments(person_id, device_id, issued_at: str | None = None, returned_at: str | None = None):
+    data = AssignmentCreate(person_id=person_id, device_id=device_id, issued_at=issued_at, returned_at=returned_at)
+    if data.issued_at and data.returned_at:
+        date_issued_at = datetime.datetime.strptime(data.issued_at, "%d-%m-%Y")
+        date_returned_at = datetime.datetime.strptime(data.returned_at, "%d-%m-%Y")
+        if (date_returned_at < date_issued_at):
+            raise HTTPException(status_code=422, detail="time logic wrong")
+
+    
+    
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            select * from assignment where device_id = %s and returned_at is null and issued_at is not null
+            """,
+            (data.device_id,)
+        )
+        assignments = list(cur.fetchall())
+        if len(assignments) > 0:
+            raise HTTPException(status_code=409, detail="Conflict bei zweiter aktiver Ausleihe")
+
+        cur.execute(
+            """
+            insert into assignment (person_id, device_id, issued_at, returned_at) values (%s, %s, %s, %s)
+            returning (id, person_id, device_id, issued_at, returned_at)
+            """,
+            (data.person_id, data.device_id, data.returned_at, data.issued_at)
+        )
+        assignment = cur.fetchone()
+        return assignment
+
+@app.get("/assignments/active")
+async def get_assignments_active():
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+        "select * from assignment where assignment.returned_at is null"
+        )
+        assignments = list(cur.fetchall())
+        return assignments
+
+@app.post("/assignments/{id}/return")
+async def post_assignments_return(id):
+    now = str(datetime.datetime.now())
+    data = AssignmentReturn(returned_at=now)
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            update assignment set returned_at = %s where id = %s
+            returning (id, person_id, device_id, issued_at, returned_at)
+            """,
+            (data.returned_at, id)
+        )
+        assignment = cur.fetchone()
+        return assignment
+    pass
+

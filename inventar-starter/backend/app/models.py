@@ -17,6 +17,7 @@ class AssignmentCreate(BaseModel):
   device_id: int
   person_id: int
   issued_at: str | None = None
+  returned_at: str | None = None
 
 
 class AssignmentReturn(BaseModel):

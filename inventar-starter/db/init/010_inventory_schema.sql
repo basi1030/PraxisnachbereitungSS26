@@ -30,64 +30,66 @@ create table if not exists person (
   id    serial primary key,
   first_name text not null,
   last_name text not null,
-  department text not null references department(department_name) on delete cascade,
-  location text not null references location(location_name) on delete cascade
+  department_id int not null references department(id) on delete cascade,
+  location_id int not null references location(id) on delete cascade
 );
 
 create table if not exists device (
-  id   serial primary key,
+  id serial primary key,
   serial_number text not null unique,
-  device_type text not null references device_type(device_type_name) on delete cascade,
-  model text not null,
-  buy_date timestamp not null,
-  purchase_price float not null,
-  location text references location(location_name) on delete cascade
+  device_type_id int not null references device_type(id) on delete cascade,
+  location_id int references location(id) on delete cascade,
+  model text,
+  buy_date timestamp,
+  purchase_price float
 );
 
 create table if not exists assignment (
   id   serial primary key,
   person_id int not null references person(id) on delete cascade,
-  device_id int not null references device(id) on delete cascade
+  device_id int not null references device(id) on delete cascade,
+  issued_at timestamp,
+  returned_at timestamp
 );
 
-insert into device_type (id, device_type_name) values
-    (1, 'Laptop'),
-    (2, 'Smartphone'),
-    (3, 'Tablet')
+insert into device_type (device_type_name) values
+    ('Laptop'),
+    ('Smartphone'),
+    ('Tablet')
 on conflict do nothing;
 
-insert into location (id, location_name) values
-    (1, 'Gebäude E'),
-    (2, 'Gebäude F'),
-    (3, 'Gebäude H')
+insert into location (location_name) values
+    ('Gebäude E'),
+    ('Gebäude F'),
+    ('Gebäude H')
 on conflict do nothing;
 
-insert into department (id, department_name) values
-    (1, 'IWI'),
-    (2, 'AB'),
-    (3, 'MME')
+insert into department (department_name) values
+    ('IWI'),
+    ('AB'),
+    ('MME')
 ON conflict do nothing;
 
-insert into device (id, serial_number, device_type, model, buy_date, purchase_price, location) values
-    (1, 'G001', 'Laptop', 'ThinkPad', '01.01.2001', 100.00, 'Gebäude E'),
-    (2, 'G002', 'Tablet', 'Samsung', '01.01.2002', 200.00, 'Gebäude F'),
-    (3, 'G003', 'Smartphone', 'IPhone', '01.01.2003', 300.00, 'Gebäude H'),
-    (4, 'G004', 'Laptop', 'MacBook', '01.01.2004', 400.00, 'Gebäude E'),
-    (5, 'G005', 'Tablet', 'IPad', '01.01.2005', 500.00, 'Gebäude F')
+insert into device (serial_number, device_type_id, location_id, model, buy_date, purchase_price) values
+    ('G001', 1, 1, 'ThinkPad', '01-01-2001', 100.00),
+    ('G002', 2, 2, 'Samsung', '01-01-2002', 200.00),
+    ('G003', 3, 3, 'IPhone', '01-01-2003', 300.00),
+    ('G004', 1, 1, 'MacBook', '01-01-2004', 400.00),
+    ('G005', 2, 2, 'IPad', '01-01-2005', 500.00)
 on conflict do nothing;
 
-insert into person (id, first_name, last_name, department, location) values
-    (1, 'Max', 'Muster', 'IWI', 'Gebäude E'),
-    (2, 'Sabine', 'Muster', 'AB', 'Gebäude F'),
-    (3, 'Sarah', 'Muster', 'MME', 'Gebäude H'),
-    (4, 'Michael', 'Muster', 'IWI', 'Gebäude E'),
-    (5, 'Anton', 'Muster', 'IWI', 'Gebäude E')
+insert into person (first_name, last_name, department_id, location_id) values
+    ('Max', 'Muster', 1, 1),
+    ('Sabine', 'Muster', 2, 2),
+    ('Sarah', 'Muster', 3, 3),
+    ('Michael', 'Muster', 1, 1),
+    ('Anton', 'Muster', 1, 1)
 on conflict do nothing;
 
-insert into assignment (id, person_id, device_id) values
-    (1, 1, 1),
-    (2, 2, 2),
-    (3, 3, 3),
-    (4, 4, 4),
-    (5, 5, 5)
+insert into assignment (person_id, device_id, issued_at, returned_at) values
+    (1, 1, '02-01-2001', null),
+    (2, 2, null, null),
+    (3, 3, '02-01-2003', '03-01-2003'),
+    (4, 4, null, null),
+    (5, 5, null, null)
 on conflict do nothing;
