@@ -5,6 +5,8 @@ erDiagram
 
     Person {
         int person_id PK
+        string first_name
+        string last_name
     }
 
     Device {
