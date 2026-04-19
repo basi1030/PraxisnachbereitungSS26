@@ -14,7 +14,7 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "t
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 
-def mqtt_client() -> mqtt.Client:
+def mqtt_client():
     c = mqtt.Client()
     c.connect(MQTT_HOST, MQTT_PORT, keepalive=30)
     return c
@@ -47,18 +47,18 @@ async def inventory_page(request: Request):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            select device.id, device_type.device_type_name, location.location_name,
+            select device.model, device_type.device_type_name, location.location_name,
             case when assignment.returned_at is null AND assignment.issued_at is not null then 'ausgeliehen'
             else 'frei'
             end as status
             from device
             join device_type on device.device_type_id = device_type.id
             join location on device.location_id = location.id
-            join assignment on device.id = assignment.device_id
+            left join assignment on device.id = assignment.device_id
             """
         )
         devices = list(cur.fetchall())
-        print(devices)
+        print(len(devices))
         return templates.TemplateResponse("inventory.html", {"request": request, "title": "Inventar Starter", "devices": devices})
 
 @app.post("/mqtt/publish")
@@ -121,7 +121,7 @@ async def post_assignments(person_id, device_id, issued_at: str | None = None, r
             insert into assignment (person_id, device_id, issued_at, returned_at) values (%s, %s, %s, %s)
             returning (id, person_id, device_id, issued_at, returned_at)
             """,
-            (data.person_id, data.device_id, data.returned_at, data.issued_at)
+            (data.person_id, data.device_id, data.issued_at, data.returned_at)
         )
         assignment = cur.fetchone()
         return assignment

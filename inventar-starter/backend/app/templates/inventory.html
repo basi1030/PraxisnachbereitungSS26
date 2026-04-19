@@ -22,10 +22,10 @@
           <ul>
             {% for d in devices %}
               <li>
-                <strong>ID:</strong> {{ d["id"] }} |
-                <strong>Type:</strong> {{ d["device_type_name"] }} |
-                <strong>Location:</strong> {{ d["location_name"] }} |
-                <strong>Status:</strong> {{ d["status" ]}}
+                <strong>Model:</strong> {{ d["model"] | default("N/A") }} |
+                <strong>Type:</strong> {{ d["device_type_name"] | default("N/A") }} |
+                <strong>Location:</strong> {{ d["location_name"] | default("N/A") }} |
+                <strong>Status:</strong> {{ d["status"] | default("N/A")}}
               </li>
             {% endfor %}
           </ul>
