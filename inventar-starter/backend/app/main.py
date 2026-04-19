@@ -1,12 +1,15 @@
 from fastapi import FastAPI, Request, Query, HTTPException, Form
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from psycopg.errors import UniqueViolation
 import os
 from .db import get_conn
 import paho.mqtt.client as mqtt
 from .models import DeviceCreate, AssignmentCreate, AssignmentReturn
 import datetime
+import csv
+import io
+import pandas as pd
 
 app = FastAPI(title="Inventar Starter", version="0.1.0")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -93,6 +96,68 @@ async def post_devices(serial_number = Form(...), device_type_id = Form(...), lo
             return RedirectResponse("/inventory", status_code=303)
     except UniqueViolation:
         raise HTTPException(status_code=409, detail="Serial number nicht unique")
+
+@app.get("/assignments.csv")
+async def get_assignments_csv():
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            select
+            a.id, dt.device_type_name, l.location_name, a.returned_at, p.first_name, p.last_name
+            from assignment a
+            join device d on d.id = a.device_id
+            join device_type dt on d.device_type_id = dt.id
+            join location l on d.location_id = l.id
+            join person p on a.person_id = p.id
+            """
+        )
+        rows = list(cur.fetchall())
+        buf = io.StringIO()
+        fieldnames = [
+        "id",
+        "device_type_name",
+        "location_name",
+        "returned_at",
+        "first_name",
+        "last_name"]
+
+        writer = csv.DictWriter(buf, fieldnames=fieldnames, delimiter=";",
+            lineterminator="\n")
+        writer.writeheader()
+        for r in rows:
+            writer.writerow(r)
+        data = buf.getvalue().encode("utf-8-sig")
+        headers = {"Content-Disposition": 'attachment; filename="assignments.csv"'}
+        return Response(content=data, media_type="text/csv; charset=utf-8",
+            headers=headers)
+
+@app.get("/assignments.xlsx")
+async def get_assignments_csv():
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            select
+            a.id, dt.device_type_name, l.location_name, a.returned_at, p.first_name, p.last_name
+            from assignment a
+            join device d on d.id = a.device_id
+            join device_type dt on d.device_type_id = dt.id
+            join location l on d.location_id = l.id
+            join person p on a.person_id = p.id
+            """
+        )
+        rows = list(cur.fetchall())
+        buf = io.StringIO()
+        df = pd.DataFrame(rows)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Grades")
+        data = output.getvalue()
+        headers = {"Content-Disposition": 'attachment; filename="grades.xlsx"'}
+        return Response(
+            content=data,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers=headers,
+            )
 
 @app.post("/assignments")
 async def post_assignments(person_id, device_id, issued_at: str | None = None, returned_at: str | None = None):
